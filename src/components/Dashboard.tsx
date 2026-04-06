@@ -1,17 +1,46 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useEventStream } from "@/hooks/use-event-stream";
 import { useInitialState } from "@/hooks/use-initial-state";
 import ConnectionStatus from "@/components/common/ConnectionStatus";
 import SessionSelector from "@/components/common/SessionSelector";
+import ResizeHandle from "@/components/common/ResizeHandle";
 import AgentPanel from "@/components/agent/AgentPanel";
 import ChatPanel from "@/components/chat/ChatPanel";
 import FlowPanel from "@/components/flow/FlowPanel";
 import StatsBar from "@/components/common/StatsBar";
 
+const LEFT_DEFAULT = 250;
+const LEFT_MIN = 180;
+const LEFT_MAX = 400;
+const RIGHT_MIN = 250;
+
 export default function Dashboard() {
   const loaded = useInitialState();
   const connectionState = useEventStream();
+  const [leftWidth, setLeftWidth] = useState(LEFT_DEFAULT);
+  const [rightWidth, setRightWidth] = useState(() =>
+    typeof window !== "undefined"
+      ? Math.max(Math.round(window.innerWidth * 0.35), 320)
+      : 400,
+  );
+
+  const handleLeftResize = useCallback((delta: number) => {
+    setLeftWidth((prev) =>
+      Math.min(LEFT_MAX, Math.max(LEFT_MIN, prev + delta)),
+    );
+  }, []);
+
+  const handleRightResize = useCallback((delta: number) => {
+    setRightWidth((prev) => {
+      const maxRight =
+        typeof window !== "undefined"
+          ? Math.round(window.innerWidth * 0.5)
+          : 800;
+      return Math.min(maxRight, Math.max(RIGHT_MIN, prev - delta));
+    });
+  }, []);
 
   if (!loaded) {
     return (
@@ -33,10 +62,18 @@ export default function Dashboard() {
       </header>
 
       {/* 3패널 레이아웃 */}
-      <div className="grid flex-1 grid-cols-[250px_1fr_320px] overflow-hidden">
-        <AgentPanel />
-        <ChatPanel />
-        <FlowPanel />
+      <div className="flex flex-1 overflow-hidden">
+        <div style={{ width: leftWidth }} className="shrink-0 overflow-hidden">
+          <AgentPanel />
+        </div>
+        <ResizeHandle onResize={handleLeftResize} />
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <ChatPanel />
+        </div>
+        <ResizeHandle onResize={handleRightResize} />
+        <div style={{ width: rightWidth }} className="shrink-0 overflow-hidden">
+          <FlowPanel />
+        </div>
       </div>
 
       {/* 하단 통계 바 */}

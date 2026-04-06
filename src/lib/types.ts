@@ -10,7 +10,8 @@ export type HookEventType =
   | "SessionStart"
   | "Stop"
   | "SubagentStart"
-  | "SubagentStop";
+  | "SubagentStop"
+  | "UserPrompt";
 
 // 우리가 내부에서 사용하는 정규화된 이벤트
 export interface HookEvent {
@@ -69,6 +70,7 @@ export interface Message {
   timestamp: string;
   eventType: HookEventType;
   toolName?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Task {

@@ -1,11 +1,38 @@
 import { type NextRequest } from "next/server";
 import { eventStore } from "@/lib/store/event-store";
-import type { HookEvent } from "@/lib/types";
+import type { HookEvent, RawHookPayload } from "@/lib/types";
 import {
   isRawHookPayload,
   normalizePayload,
   VALID_EVENT_TYPES,
 } from "@/lib/store/normalize-payload";
+import { readNewUserMessages } from "@/lib/store/transcript-reader";
+
+const lastTimestampMap = new Map<string, string>();
+
+async function processTranscript(
+  raw: RawHookPayload,
+  hookEvent: HookEvent,
+): Promise<void> {
+  if (!raw.transcript_path) return;
+
+  const sessionId = raw.session_id;
+  const lastTs = lastTimestampMap.get(sessionId) ?? null;
+  const userMessages = await readNewUserMessages(raw.transcript_path, lastTs);
+
+  for (const msg of userMessages) {
+    const userEvent: HookEvent = {
+      type: "UserPrompt",
+      sessionId,
+      timestamp: msg.timestamp,
+      agentId: hookEvent.agentId,
+      agentName: "사용자",
+      content: msg.content,
+    };
+    eventStore.addEvent(userEvent);
+    lastTimestampMap.set(sessionId, msg.timestamp);
+  }
+}
 
 function isNormalizedHookEvent(body: unknown): body is HookEvent {
   if (typeof body !== "object" || body === null) return false;
@@ -57,6 +84,11 @@ export async function POST(request: NextRequest) {
     }
 
     const sseEvents = eventStore.addEvent(hookEvent);
+
+    if (isRawHookPayload(body) && body.transcript_path) {
+      await processTranscript(body, hookEvent);
+    }
+
     return Response.json({ ok: true, processed: sseEvents.length });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "알 수 없는 오류";

@@ -162,6 +162,22 @@ export function processHookEvent(
         timestamp: event.timestamp,
         eventType: event.type,
         toolName: event.toolName,
+        metadata: event.metadata,
+      };
+      events.push({ type: "message", data: message });
+      break;
+    }
+
+    case "UserPrompt": {
+      const message: Message = {
+        id: uuidv4(),
+        sessionId: event.sessionId,
+        agentId,
+        agentName: event.agentName ?? "사용자",
+        content: event.content ?? "",
+        timestamp: event.timestamp,
+        eventType: event.type,
+        metadata: event.metadata,
       };
       events.push({ type: "message", data: message });
       break;

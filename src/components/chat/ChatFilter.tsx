@@ -15,6 +15,7 @@ const EVENT_TYPE_OPTIONS: { value: HookEventType; label: string }[] = [
   { value: "SubagentStart", label: "서브에이전트 시작" },
   { value: "SubagentStop", label: "서브에이전트 종료" },
   { value: "TeammateIdle", label: "대기" },
+  { value: "UserPrompt", label: "사용자 입력" },
 ];
 
 export default function ChatFilter() {

@@ -90,7 +90,7 @@ export interface Session {
   status: "active" | "stopped";
 }
 
-export interface SessionDetail extends Session {
+export interface SessionDetail extends Omit<Session, "agents"> {
   agents: Agent[];
   messages: Message[];
   tasks: Task[];

@@ -6,7 +6,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import ResizeHandle from "@/components/common/ResizeHandle";
 import AgentPanel from "@/components/agent/AgentPanel";
 import FlowPanel from "@/components/flow/FlowPanel";
-import ChatPanel from "@/components/chat/ChatPanel";
+import DetailPanel from "@/components/common/DetailPanel";
 import StatsBar from "@/components/common/StatsBar";
 import { useMessageStore } from "@/stores/message-store";
 
@@ -57,7 +57,7 @@ export default function Dashboard() {
             <>
               <ResizeHandle onResize={handleChatResize} />
               <div style={{ width: chatWidth }} className="shrink-0 overflow-hidden bg-foreground/[0.02]">
-                <ChatPanel />
+                <DetailPanel />
               </div>
             </>
           )}

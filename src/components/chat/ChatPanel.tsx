@@ -7,7 +7,7 @@ import { X, MessageSquare, Box } from "lucide-react";
 import { useMessageStore } from "@/stores/message-store";
 import { useAgentStore } from "@/stores/agent-store";
 
-export default function ChatPanel({ hideHeader }: { hideHeader?: boolean }) {
+export default function ChatPanel() {
   const filter = useMessageStore((s) => s.filter);
   const setFilter = useMessageStore((s) => s.setFilter);
   const messages = useMessageStore((s) => s.messages);
@@ -33,22 +33,20 @@ export default function ChatPanel({ hideHeader }: { hideHeader?: boolean }) {
 
   return (
     <div className="flex h-full flex-col bg-background border-l border-foreground/10">
-      {!hideHeader && (
-        <div className="flex h-12 items-center justify-between border-b border-foreground/10 px-4 bg-foreground/[0.02]">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-indigo-400" />
-            <h2 className="text-sm font-semibold text-foreground/90">
-              {selectedAgent?.name || "Agent Messages"}
-            </h2>
-          </div>
-          <button 
-            onClick={() => setFilter({ agentId: null })}
-            className="p-1 hover:bg-foreground/10 rounded-md transition-colors"
-          >
-            <X className="h-4 w-4 text-foreground/50" />
-          </button>
+      <div className="flex h-12 items-center justify-between border-b border-foreground/10 px-4 bg-foreground/[0.02]">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-indigo-400" />
+          <h2 className="text-sm font-semibold text-foreground/90">
+            {selectedAgent?.name || "Agent Messages"}
+          </h2>
         </div>
-      )}
+        <button 
+          onClick={() => setFilter({ agentId: null })}
+          className="p-1 hover:bg-foreground/10 rounded-md transition-colors"
+        >
+          <X className="h-4 w-4 text-foreground/50" />
+        </button>
+      </div>
       
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {filteredMessages.length === 0 ? (

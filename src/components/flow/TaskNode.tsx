@@ -55,7 +55,8 @@ function TaskNodeComponent({ data }: NodeProps<Node<TaskNodeData>>) {
 
   return (
     <div
-      className={`w-[220px] rounded-lg border-2 px-3 py-2 shadow-sm ${BORDER_COLORS[status] ?? FALLBACK_BORDER} ${BG_COLORS[status] ?? FALLBACK_BG}`}
+      style={{ width: data.width ? `${data.width}px` : "220px" }}
+      className={`rounded-lg border-2 px-3 py-2 shadow-sm ${BORDER_COLORS[status] ?? FALLBACK_BORDER} ${BG_COLORS[status] ?? FALLBACK_BG}`}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
 

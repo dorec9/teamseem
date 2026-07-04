@@ -65,7 +65,11 @@ export function buildFlowElements(
 
   // Add Tasks to graph
   for (const task of tasks) {
-    g.setNode(`task-${task.id}`, { width: TASK_NODE_WIDTH, height: TASK_NODE_HEIGHT });
+    // Estimate text width: ~6.5px per char (Korean/English mix), padding ~40px
+    const estimatedWidth = task.description.length * 6.5 + 40;
+    const dynamicWidth = Math.min(400, Math.max(220, estimatedWidth));
+
+    g.setNode(`task-${task.id}`, { width: dynamicWidth, height: TASK_NODE_HEIGHT });
     nodes.push({
       id: `task-${task.id}`,
       type: "taskNode",
@@ -76,6 +80,7 @@ export function buildFlowElements(
         status: task.status,
         createdAt: task.createdAt,
         completedAt: task.completedAt,
+        width: dynamicWidth,
       } as TaskNodeData,
     });
 
@@ -105,7 +110,7 @@ export function buildFlowElements(
 
   for (const node of nodes) {
     const pos = g.node(node.id);
-    const width = node.type === "agentNode" ? AGENT_NODE_WIDTH : TASK_NODE_WIDTH;
+    const width = node.type === "agentNode" ? AGENT_NODE_WIDTH : (node.data.width as number ?? TASK_NODE_WIDTH);
     const height = node.type === "agentNode" ? AGENT_NODE_HEIGHT : TASK_NODE_HEIGHT;
     node.position = {
       x: pos.x - width / 2,

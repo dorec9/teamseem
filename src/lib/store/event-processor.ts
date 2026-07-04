@@ -176,6 +176,7 @@ async function processHookEventInternal(event: HookEvent): Promise<SSEEvent[]> {
         },
         update: {
           description: event.content ?? "태스크",
+          parentTaskId: event.parentTaskId,
         }
       });
       events.push({ type: "task", data: { ...task, createdAt: task.createdAt.toISOString(), completedAt: task.completedAt?.toISOString() } as any });

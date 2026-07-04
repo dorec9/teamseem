@@ -31,13 +31,35 @@ export async function syncTasks(
   const parsedTasks: { description: string; status: "created" | "in_progress" | "completed"; parentTaskId?: string }[] = [];
 
   let currentTopLevelTaskId: string | undefined = undefined;
+  let currentTopLevelIndent = 0;
 
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (!line.trim() || line.trim().startsWith("#")) continue;
 
-    // Check if the line is a top-level task (e.g. "1. " or "**1.**")
-    const isTopLevel = /^(?:\*\*|__)?\d+\.\s+/.test(trimmed);
+    const indentMatch = line.match(/^\s*/);
+    const indentLevel = indentMatch ? indentMatch[0].length : 0;
+    const trimmed = line.trim();
+
+    // Check if it's an explicit top-level marker (e.g., "- ", "1. ")
+    const hasExplicitMarker = /^(?:\*\*|__)?(?:\d+\.|[-*+])\s+/.test(trimmed);
+
+    let isTopLevel = false;
+
+    if (!currentTopLevelTaskId) {
+      isTopLevel = true;
+    } else if (/^(?:\*\*|__)?\d+\.\s+/.test(trimmed)) {
+      // Numbers are always top-level in this context
+      isTopLevel = true;
+    } else if (hasExplicitMarker && indentLevel <= currentTopLevelIndent) {
+      // It's a bullet and its indent is not deeper than the current top level
+      isTopLevel = true;
+    } else if (indentLevel === 0 && hasExplicitMarker) {
+      // 0 indent bullet
+      isTopLevel = true;
+    } else if (indentLevel === 0 && currentTopLevelIndent > 0) {
+      // Jumped back to 0 indent (new top-level text)
+      isTopLevel = true;
+    }
 
     // Strip leading bullets/numbers if any
     let cleaned = trimmed.replace(/^(?:[-*+]|\d+\.)\s*/, "").trim();
@@ -60,10 +82,12 @@ export async function syncTasks(
     if (description) {
       const pTask = { description, status, parentTaskId: undefined as string | undefined };
       
+      const taskId = generateTaskId(sessionId, description);
+
       if (isTopLevel) {
         // This is a top-level task
-        const taskId = generateTaskId(sessionId, description);
         currentTopLevelTaskId = taskId;
+        currentTopLevelIndent = indentLevel;
       } else {
         // This is a subtask, assign it to the current top-level task
         pTask.parentTaskId = currentTopLevelTaskId;
@@ -87,8 +111,8 @@ export async function syncTasks(
       where: { id: taskId }
     });
 
-    if (!existingTask) {
-      // It's a new task, emit TaskCreated
+    if (!existingTask || existingTask.parentTaskId !== (pTask.parentTaskId || null)) {
+      // It's a new task or its parent changed, emit TaskCreated
       await eventStore.addEvent({
         type: "TaskCreated" as HookEventType,
         sessionId,

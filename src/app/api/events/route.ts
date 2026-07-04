@@ -61,6 +61,8 @@ function isNormalizedHookEvent(body: unknown): body is HookEvent {
   );
 }
 
+import { syncTasks } from "@/lib/store/task-reader";
+
 export async function POST(request: NextRequest) {
   const contentType = request.headers.get("content-type");
   if (!contentType?.includes("application/json")) {
@@ -116,11 +118,32 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("HOOK EVENT TYPE:", hookEvent.type);
+    if (isRawHookPayload(body)) {
+      console.log("RAW HOOK KEYS:", Object.keys(body));
+    }
+    
     const sseEvents = await eventStore.addEvent(hookEvent);
     console.log("SSE EVENTS LENGTH:", sseEvents.length);
 
-    if (isRawHookPayload(body) && body.transcriptPath) {
-      processTranscript(body, hookEvent).catch(console.error);
+    if (isRawHookPayload(body)) {
+      if (body.transcriptPath) {
+        processTranscript(body, hookEvent).catch(console.error);
+      }
+
+      // If artifactDirectoryPath is not in payload, derive it from transcriptPath
+      // transcriptPath: C:\...\brain\<conversation-id>\.system_generated\logs\transcript.jsonl
+      let artifactDir = body.artifactDirectoryPath;
+      if (!artifactDir && body.transcriptPath) {
+        const parts = body.transcriptPath.split(/\\|\//);
+        const sysGenIndex = parts.indexOf(".system_generated");
+        if (sysGenIndex !== -1) {
+          artifactDir = parts.slice(0, sysGenIndex).join("/");
+        }
+      }
+
+      if (artifactDir) {
+        syncTasks(artifactDir, hookEvent.sessionId, hookEvent.agentId || hookEvent.sessionId).catch(console.error);
+      }
     }
 
     return Response.json({ ok: true, processed: sseEvents.length });

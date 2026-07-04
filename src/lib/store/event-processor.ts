@@ -124,9 +124,11 @@ export async function processHookEvent(
     }
 
     case "TaskCreated": {
-      const task = await prisma.task.create({
-        data: {
-          id: event.taskId ?? uuidv4(),
+      const taskId = event.taskId ?? uuidv4();
+      const task = await prisma.task.upsert({
+        where: { id: taskId },
+        create: {
+          id: taskId,
           sessionId: event.sessionId,
           agentId,
           agentName: event.agentName ?? agentId,
@@ -135,6 +137,9 @@ export async function processHookEvent(
           parentTaskId: event.parentTaskId,
           createdAt: new Date(event.timestamp),
         },
+        update: {
+          description: event.content ?? "태스크",
+        }
       });
       events.push({ type: "task", data: { ...task, createdAt: task.createdAt.toISOString(), completedAt: task.completedAt?.toISOString() } as any });
       break;

@@ -1,0 +1,76 @@
+{
+  "hooks": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "SubagentStart": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "TaskCreated": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ],
+    "UserPrompt": [
+      {
+        "type": "command",
+        "command": "node C:/Users/ehgus/.gemini/antigravity/scratch/teamseem/send-event.js"
+      }
+    ]
+  }
+}

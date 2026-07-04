@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Session {
+  id          String   @id
+  title       String   @default("새로운 대화")
+  projectName String   @default("Unknown")
+  startedAt   DateTime @default(now())
+  status      String   @default("active") // "active" | "stopped"
+  
+  agents      Agent[]
+  messages  Message[]
+  tasks     Task[]
+}
+
+model Agent {
+  id            String   @id
+  name          String
+  sessionId     String
+  status        String   @default("working")
+  lastSeen      DateTime @default(now())
+  parentAgentId String?
+
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id
+  sessionId String
+  agentId   String
+  agentName String
+  content   String
+  timestamp DateTime
+  eventType String
+  toolName  String?
+  metadata  String?  // JSON stringified
+
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id           String   @id
+  sessionId    String
+  agentId      String
+  agentName    String
+  description  String
+  status       String   @default("created")
+  parentTaskId String?
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}

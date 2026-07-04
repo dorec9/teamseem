@@ -1,0 +1,1 @@
+import sqlite3; conn = sqlite3.connect("dev.db"); print(conn.execute("SELECT id, name FROM Agent WHERE sessionId='5214e051-4988-402f-9da6-3309934427b5'").fetchall())

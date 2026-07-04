@@ -182,6 +182,32 @@ function discoverSessions() {
 console.log("[AG Watcher] Starting multi-session observer mode for Antigravity using Chokidar...");
 setTimeout(discoverSessions, 5000);
 
+if (fs.existsSync(BRAIN_DIR)) {
+  chokidar.watch(BRAIN_DIR, {
+    depth: 0,
+    ignoreInitial: true
+  }).on('addDir', (dirPath) => {
+    const sessionId = path.basename(dirPath);
+    console.log(`[AG Watcher] Detected new session folder: ${sessionId}`);
+    
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const transcriptPath = path.join(dirPath, ".system_generated", "logs", "transcript.jsonl");
+      if (fs.existsSync(transcriptPath)) {
+        clearInterval(interval);
+        const watchKey = `${sessionId}_${sessionId}-antigravity-1`;
+        if (!watchers.has(watchKey)) {
+          console.log(`[AG Watcher] Hooking into new transcript: ${sessionId}`);
+          watchTranscript(sessionId, `${sessionId}-antigravity-1`, transcriptPath, true);
+          scanForSubagents(sessionId, transcriptPath);
+        }
+      } else if (attempts++ > 30) {
+        clearInterval(interval);
+      }
+    }, 1000);
+  });
+}
+
 // Run auto-stop cron every 5 minutes
 setInterval(() => {
   fetch("http://localhost:3000/api/cron")

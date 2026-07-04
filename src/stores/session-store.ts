@@ -33,9 +33,12 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set((state) => {
       const exists = state.sessions.find((s) => s.id === session.id);
       if (exists) return state;
+      
+      const isRecent = new Date().getTime() - new Date(session.startedAt).getTime() < 10000;
+      
       return {
         sessions: [...state.sessions, session],
-        activeSessionId: state.activeSessionId ?? session.id,
+        activeSessionId: state.activeSessionId ? (isRecent ? session.id : state.activeSessionId) : session.id,
       };
     }),
 

@@ -31,8 +31,7 @@ export default function TaskChecklist({ agentId }: { agentId?: string }) {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     
-    // 사용자의 요청에 따라 가장 최신의(우선순위가 높은) 단 1개의 태스크만 노출
-    return sorted.slice(0, 1);
+    return sorted;
   }, [tasks, activeSessionId, agentId]);
 
   return (

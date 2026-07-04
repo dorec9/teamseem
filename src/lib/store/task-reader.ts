@@ -147,28 +147,12 @@ export async function syncTasks(
     }
   }
 
-  // Mark tasks that were removed from task.md as completed so they don't block the UI
-  const obsoleteTasks = await prisma.task.findMany({
+  // Delete tasks that were removed from task.md to prevent cluttering the diagram with old ghost tasks
+  await prisma.task.deleteMany({
     where: {
       sessionId,
       agentId,
       id: { notIn: currentTaskIds },
-      status: { not: "completed" }
     }
   });
-
-  for (const t of obsoleteTasks) {
-    await prisma.task.update({
-      where: { id: t.id },
-      data: { status: "completed", completedAt: new Date() }
-    });
-    await eventStore.addEvent({
-      type: "TaskCompleted" as HookEventType,
-      sessionId,
-      timestamp: new Date().toISOString(),
-      agentId,
-      taskId: t.id,
-      content: t.description,
-    });
-  }
 }

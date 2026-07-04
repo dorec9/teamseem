@@ -129,7 +129,7 @@ export default function FlowPanel() {
             }`}
           >
             <CheckSquare className="h-3.5 w-3.5" />
-            체크리스트 {filteredTasks.length > 0 ? "(1)" : ""}
+            체크리스트 {filteredTasks.length > 0 ? `(${filteredTasks.length})` : ""}
           </button>
         </div>
       </div>

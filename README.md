@@ -1,99 +1,89 @@
-# TeamSeem
+# TeamSeem (팀심) 🚀
 
-Agent Team의 대화와 작업 흐름을 실시간으로 시각화하는 웹 애플리케이션입니다.
+TeamSeem은 복잡한 멀티 에이전트(Multi-Agent) 시스템의 상태를 실시간으로 모니터링하고 관제하기 위한 **웹 대시보드 아키텍처 뷰어**입니다. 
+Antigravity 에이전트 시스템에서 발생하는 모든 서브 에이전트 생성, 태스크 처리, 메시지 기록을 시각적으로 파악하고 관리할 수 있습니다.
 
-## 주요 기능
+![TeamSeem Dashboard](./docs/screenshot.png) <!-- 사용자분께서 이곳에 스크린샷을 추가해주시면 완벽합니다! -->
 
-- **실시간 대화 모니터링** — SSE(Server-Sent Events) 기반으로 에이전트 간 메시지를 실시간 수신 및 표시
-- **작업 흐름 시각화** — React Flow를 활용한 태스크 의존성 그래프 및 진행 상태 표시
-- **에이전트 상태 추적** — 각 에이전트의 현재 상태(활성/유휴/종료)를 한눈에 파악
-- **세션 관리** — 여러 팀 세션을 전환하며 모니터링
-- **이벤트 필터링** — 메시지 타입별 필터로 원하는 정보만 확인
+## 🌟 주요 기능 (Features)
 
-## 기술 스택
+* **실시간 세션 추적 (Real-time Session Sync)**
+  * `chokidar` 기반의 초고속 파일 시스템 와쳐(`ag-watcher.mjs`)가 백그라운드에서 로그를 감지합니다.
+  * 새로운 대화와 서브 에이전트 생성을 0.1초 이내에 UI로 실시간 반영합니다.
+  
+* **프로젝트 기반 세션 그룹핑 및 검색**
+  * 여러 프로젝트 폴더별로 에이전트들의 대화를 자동 분류합니다.
+  * 사이드바에 내장된 강력한 **실시간 검색(Search) 필터**를 통해 수백 개의 세션 중 원하는 대화를 1초 만에 찾을 수 있습니다.
 
-| 분류        | 기술                       |
-| ----------- | -------------------------- |
-| 프레임워크  | Next.js 15 (App Router)    |
-| 언어        | TypeScript (strict mode)   |
-| 스타일링    | Tailwind CSS               |
-| 상태 관리   | Zustand                    |
-| 시각화      | React Flow (@xyflow/react) |
-| 레이아웃    | Dagre (@dagrejs/dagre)     |
-| 실시간 통신 | Server-Sent Events (SSE)   |
+* **서브 에이전트 시각화 다이어그램 (Sub-flow Visualization)**
+  * 복잡하게 파생되는 부모-자식 에이전트 관계를 `React Flow` 기반의 직관적인 다이어그램으로 그려줍니다.
+  * 서브 에이전트는 **점선 테두리와 투명한 배경**으로 명확하게 구분되어, 전체 시스템의 위임(Delegation) 구조를 한눈에 파악할 수 있습니다.
 
-## 프로젝트 구조
+* **마크다운 리치 텍스트 채팅 패널 (Markdown Chat Panel)**
+  * 모델이 생성하는 코드 블럭, 데이터 표(Table), 리스트 등을 깨짐 없이 예쁘게 렌더링합니다.
+  * 어떤 Tool(도구)이 사용되었는지 직관적인 UI 뱃지로 표기됩니다.
 
-```
-src/
-├── app/                  # Next.js App Router
-│   ├── api/
-│   │   ├── events/       # SSE 이벤트 수신 및 스트리밍
-│   │   ├── sessions/     # 세션 조회 API
-│   │   └── debug/        # 디버그 엔드포인트
-│   ├── settings/         # 설정 페이지
-│   └── page.tsx          # 메인 대시보드
-├── components/
-│   ├── agent/            # 에이전트 상태 패널 및 뱃지
-│   ├── chat/             # 대화 모니터링 (메시지, 필터)
-│   ├── common/           # 공용 컴포넌트 (연결 상태, 세션 선택)
-│   ├── flow/             # 작업 흐름 시각화 (React Flow)
-│   ├── settings/         # 설정 UI
-│   └── Dashboard.tsx     # 메인 대시보드 레이아웃
-├── hooks/                # 커스텀 훅 (SSE 스트림, 초기 상태)
-├── lib/                  # 유틸리티, 타입, 이벤트 처리
-│   ├── store/            # 이벤트 저장소, 정규화, 프로세서
-│   └── types.ts          # 공유 타입 정의
-└── stores/               # Zustand 스토어 (에이전트, 메시지, 세션, 태스크)
-```
+* **세션 자동 중지 및 리소스 최적화 (Auto-stop Cron)**
+  * 30분 이상 유휴 상태인 세션은 백그라운드 스케줄러가 자동으로 `stopped` 상태로 전환시켜 대시보드를 쾌적하게 유지합니다.
 
-## 시작하기
+---
 
-### 요구 사항
+## 🚀 설치 및 실행 (Getting Started)
 
-- Node.js 20 이상
-- npm
-
-### 설치 및 실행
-
+### 1. 패키지 설치
 ```bash
-# 의존성 설치
 npm install
-
-# 개발 서버 실행
-npm run dev
 ```
 
-[http://localhost:3000](http://localhost:3000)에서 대시보드를 확인할 수 있습니다.
-
-### 주요 스크립트
-
+### 2. SQLite 데이터베이스 초기화
+Prisma를 사용하여 로컬 SQLite DB(`dev.db`)를 초기화합니다.
 ```bash
-npm run dev       # 개발 서버
-npm run build     # 프로덕션 빌드
-npm run start     # 프로덕션 서버
-npm run lint      # ESLint 실행
+npm run prisma:generate
+npm run prisma:push
 ```
 
-## Agent 연동
-
-TeamSeem은 **Gemini / Antigravity** 환경의 로그를 실시간으로 스트리밍하여 에이전트 이벤트를 수신합니다.
-
-### Native Hooks 실행
-
-Antigravity의 공식 훅(Hook) 기능을 통해 이벤트를 전송합니다. 프로젝트 루트에 있는 `.agents/hooks.json` 파일에 의해 자동으로 이벤트가 수집되어 `http://localhost:3000/api/events` 로 전송됩니다.
-
-별도의 스크립트를 수동으로 실행할 필요 없이, 단순히 TeamSeem 서버만 켜두면 됩니다.
-
-상세한 아키텍처 및 마이그레이션 가이드는 `docs/index.md`를 참고해 주세요.
-
-### 연결 확인
-
+### 3. 서버 및 와쳐(Watcher) 실행
+서버 구동 시 `ag-watcher.mjs`가 자동으로 백그라운드에서 실행되며 파일 감시를 시작합니다.
 ```bash
-# 서버 상태 확인
-curl http://localhost:3000/api/health
+npm run dev:ws
+```
+실행 후 브라우저에서 `http://localhost:3000`에 접속합니다.
+
+---
+
+## 🛠 기술 스택 (Tech Stack)
+
+* **Frontend**: Next.js 14 (App Router), React, Tailwind CSS, Lucide Icons
+* **Diagram**: React Flow, Dagre (Hierarchical Layout)
+* **Markdown**: react-markdown, remark-gfm
+* **Backend**: Node.js, Next.js API Routes, Server-Sent Events (SSE)
+* **Database**: Prisma ORM, SQLite
+* **File Watcher**: Chokidar
+
+---
+
+## 📁 프로젝트 구조
+
+```text
+teamseem/
+├── ag-watcher.mjs        # 백그라운드 파일 시스템 감시 스크립트 (Chokidar)
+├── prisma/               # 데이터베이스 스키마 및 DB 파일
+├── src/
+│   ├── app/              # Next.js App Router (API 및 페이지 레이아웃)
+│   ├── components/       # UI 컴포넌트 모음
+│   │   ├── agent/        # 좌측 에이전트 리스트 패널
+│   │   ├── chat/         # 우측 슬라이딩 마크다운 채팅 패널
+│   │   ├── flow/         # 중앙 아키텍처 다이어그램 패널
+│   │   └── layout/       # 최좌측 사이드바 및 공통 레이아웃
+│   ├── hooks/            # 커스텀 React 훅
+│   ├── lib/              # 데이터베이스 커넥션, 타입, 이벤트 정규화 로직
+│   └── stores/           # Zustand 기반 전역 상태 관리 (Session, Agent, Message 등)
+└── tailwind.config.ts    # 테일윈드 스타일 설정
 ```
 
-## 라이선스
+---
 
-MIT
+## 💡 개발 가이드
+
+* **데이터베이스 수정**: `prisma/schema.prisma`를 변경한 후 `npx prisma db push`를 실행하여 스키마를 업데이트하세요.
+* **이벤트 처리**: 새로운 타입의 이벤트를 추가하려면 `src/lib/types.ts`와 `src/lib/store/normalize-payload.ts`를 수정하세요.

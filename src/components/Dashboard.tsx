@@ -10,8 +10,8 @@ import ChatPanel from "@/components/chat/ChatPanel";
 import StatsBar from "@/components/common/StatsBar";
 import { useMessageStore } from "@/stores/message-store";
 
-const LEFT_DEFAULT = 250;
-const LEFT_MIN = 180;
+const LEFT_DEFAULT = 300;
+const LEFT_MIN = 220;
 const LEFT_MAX = 400;
 
 export default function Dashboard() {

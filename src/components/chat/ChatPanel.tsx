@@ -92,7 +92,7 @@ export default function ChatPanel() {
                   )}
                   
                   {isModel && msg.content ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-1 prose-pre:bg-foreground/5 dark:prose-pre:bg-black/50 prose-pre:border prose-pre:border-foreground/10 dark:prose-a:text-indigo-400 dark:prose-strong:text-white dark:prose-code:text-indigo-300">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-1 prose-pre:bg-foreground/5 dark:prose-pre:bg-black/50 prose-pre:border prose-pre:border-foreground/10 dark:prose-p:text-gray-100 dark:prose-headings:text-white dark:prose-li:text-gray-100 dark:prose-a:text-indigo-400 dark:prose-strong:text-white dark:prose-code:text-indigo-300 dark:text-gray-100">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
                       </ReactMarkdown>

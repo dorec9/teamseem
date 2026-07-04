@@ -77,74 +77,15 @@ npm run lint      # ESLint 실행
 
 ## Agent 연동
 
-TeamSeem은 Claude Code의 [hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) 기능을 통해 에이전트 이벤트를 수신합니다.
+TeamSeem은 **Gemini / Antigravity** 환경의 로그를 실시간으로 스트리밍하여 에이전트 이벤트를 수신합니다.
 
-### 자동 설정 (hook-config API)
+### Native Hooks 실행
 
-TeamSeem 서버가 실행 중이라면, hook 설정 JSON을 API로 받을 수 있습니다:
+Antigravity의 공식 훅(Hook) 기능을 통해 이벤트를 전송합니다. 프로젝트 루트에 있는 `.agents/hooks.json` 파일에 의해 자동으로 이벤트가 수집되어 `http://localhost:3000/api/events` 로 전송됩니다.
 
-```bash
-# 기본 URL (http://localhost:3000)
-curl http://localhost:3000/api/hook-config
+별도의 스크립트를 수동으로 실행할 필요 없이, 단순히 TeamSeem 서버만 켜두면 됩니다.
 
-# 커스텀 서버 URL
-curl "http://localhost:3000/api/hook-config?url=https://teamseem.example.com"
-```
-
-반환된 JSON을 Claude Code의 `~/.claude/settings.json`에 병합하세요.
-
-### 수동 설정
-
-`~/.claude/settings.json`에 아래와 같이 hooks 섹션을 추가합니다:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "SubagentStart": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "SubagentStop": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "Stop": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "TaskCreated": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "type": "command",
-        "command": "curl -s -X POST http://localhost:3000/api/events -H 'Content-Type: application/json' -d '$CLAUDE_HOOK_PAYLOAD'"
-      }
-    ]
-  }
-}
-```
+상세한 아키텍처 및 마이그레이션 가이드는 `docs/index.md`를 참고해 주세요.
 
 ### 연결 확인
 

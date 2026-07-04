@@ -19,18 +19,8 @@ export async function GET() {
         }
       };
 
-      // 초기 상태 스냅샷 전송
-      try {
-        const snapshot = eventStore.getSnapshot();
-        for (const event of snapshot) {
-          const data = `data: ${JSON.stringify(event)}\n\n`;
-          controller.enqueue(encoder.encode(data));
-        }
-      } catch {
-        cleanup();
-        controller.close();
-        return;
-      }
+      // 초기 스냅샷은 클라이언트에서 /api/sessions 로 가져옴 (useInitialState)
+      // SSE 스트림은 새로운 이벤트만 구독함.
 
       // 연결 확인 이벤트
       controller.enqueue(encoder.encode(`: connected\n\n`));

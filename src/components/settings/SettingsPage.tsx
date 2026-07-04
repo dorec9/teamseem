@@ -3,6 +3,11 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 
+import { useSessionStore } from "@/stores/session-store";
+import { useAgentStore } from "@/stores/agent-store";
+import { useMessageStore } from "@/stores/message-store";
+import { useTaskStore } from "@/stores/task-store";
+
 const HOOK_CONFIG = `{
   "hooks": {
     "SessionStart": [
@@ -49,9 +54,9 @@ const USAGE_STEPS = [
   },
   {
     step: 3,
-    title: "Claude Code 세션 시작",
+    title: "에이전트 세션 시작",
     description:
-      "설정이 적용된 프로젝트에서 Claude Code를 실행하면 이벤트가 TeamSeem으로 전송됩니다.",
+      "설정이 적용된 환경에서 에이전트를 실행하면 이벤트가 TeamSeem으로 전송됩니다.",
   },
   {
     step: 4,
@@ -62,6 +67,12 @@ const USAGE_STEPS = [
 
 export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const clearSessions = useSessionStore((s) => s.clear);
+  const clearAgents = useAgentStore((s) => s.clear);
+  const clearMessages = useMessageStore((s) => s.clear);
+  const clearTasks = useTaskStore((s) => s.clear);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -72,6 +83,29 @@ export default function SettingsPage() {
       // 클립보드 권한 거부 시 무시
     }
   }, []);
+
+  const handleClearDatabase = async () => {
+    if (!confirm("모든 세션, 에이전트, 태스크, 메시지가 영구적으로 삭제됩니다. 계속하시겠습니까?")) return;
+    
+    setIsClearing(true);
+    try {
+      const res = await fetch("/api/database/clear", { method: "DELETE" });
+      if (res.ok) {
+        clearSessions();
+        clearAgents();
+        clearMessages();
+        clearTasks();
+        alert("데이터베이스가 초기화되었습니다.");
+      } else {
+        alert("데이터 초기화에 실패했습니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("데이터 초기화 중 오류가 발생했습니다.");
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -118,7 +152,7 @@ export default function SettingsPage() {
         {/* Hook 설정 JSON */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Claude Code Hook 설정</h2>
+            <h2 className="text-base font-semibold">에이전트 Hook 설정</h2>
             <button
               onClick={handleCopy}
               className="rounded-md bg-foreground/10 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-foreground/20"
@@ -127,9 +161,8 @@ export default function SettingsPage() {
             </button>
           </div>
           <p className="mb-3 text-sm text-foreground/50">
-            이 설정을{" "}
-            <code className="text-foreground/70">.claude/settings.json</code>의{" "}
-            <code className="text-foreground/70">hooks</code> 필드에 병합하세요.
+            이 설정을 에이전트 환경의{" "}
+            <code className="text-foreground/70">hooks</code> 또는 이벤트 필드에 연동하세요.
           </p>
           <pre className="overflow-x-auto rounded-lg border border-foreground/10 bg-foreground/[0.03] p-4 text-xs leading-relaxed text-foreground/80">
             {HOOK_CONFIG}
@@ -147,11 +180,27 @@ export default function SettingsPage() {
               &bull; 포트가 다르면 URL의 <code>3000</code>을 변경하세요
             </li>
             <li>
-              &bull; 기존 hooks 설정이 있다면 이벤트 배열에 추가하세요 (덮어쓰기
-              금지)
+              &bull; 기존 hooks 설정이 있다면 이벤트 배열에 추가하세요 (덮어쓰기 금지)
             </li>
             <li>&bull; 서버 재시작 시 인메모리 데이터가 초기화됩니다</li>
           </ul>
+        </section>
+
+        {/* 위험 구역 */}
+        <section className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 mt-8">
+          <h3 className="mb-2 text-sm font-semibold text-red-400">
+            위험 구역 (Danger Zone)
+          </h3>
+          <p className="mb-4 text-sm text-foreground/60">
+            TeamSeem 데이터베이스의 모든 세션, 에이전트, 태스크, 대화 내역을 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <button
+            onClick={handleClearDatabase}
+            disabled={isClearing}
+            className="rounded-md bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          >
+            {isClearing ? "초기화 중..." : "전체 데이터 초기화"}
+          </button>
         </section>
       </main>
     </div>

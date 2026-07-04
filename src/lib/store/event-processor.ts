@@ -1,185 +1,249 @@
 import { v4 as uuidv4 } from "uuid";
-import type {
-  HookEvent,
-  Agent,
-  Message,
-  Task,
-  Session,
-  SSEEvent,
-} from "@/lib/types";
+import type { HookEvent, SSEEvent, Message, Task } from "@/lib/types";
+import { prisma } from "@/lib/db";
 
-interface StoreState {
-  sessions: Map<string, Session>;
-  agents: Map<string, Agent>;
+async function ensureSession(event: HookEvent): Promise<SSEEvent | null> {
+  let session = await prisma.session.findUnique({
+    where: { id: event.sessionId },
+  });
+
+  const projectName = typeof event.metadata?.projectName === "string" ? event.metadata.projectName : "Unknown";
+  const title = typeof event.metadata?.title === "string" ? event.metadata.title : "새로운 대화";
+
+  if (!session) {
+    session = await prisma.session.create({
+      data: {
+        id: event.sessionId,
+        title,
+        projectName,
+        startedAt: new Date(event.timestamp),
+        status: "active",
+      },
+    });
+    return { type: "session", data: { ...session, agents: [] } as any };
+  } else if ((session.projectName !== projectName && projectName !== "Unknown") || (session.title !== title && title !== "새로운 대화") || (session.startedAt.getTime() > new Date(event.timestamp).getTime() + 10000)) {
+    session = await prisma.session.update({
+      where: { id: event.sessionId },
+      data: { 
+        projectName: projectName !== "Unknown" ? projectName : session.projectName,
+        title: title !== "새로운 대화" ? title : session.title,
+        startedAt: session.startedAt.getTime() > new Date(event.timestamp).getTime() + 10000 ? new Date(event.timestamp) : session.startedAt,
+      },
+    });
+    return { type: "session", data: { ...session, startedAt: session.startedAt.toISOString(), agents: [] } as any };
+  }
+  return null;
 }
 
-function ensureSession(state: StoreState, event: HookEvent): SSEEvent | null {
-  if (state.sessions.has(event.sessionId)) return null;
-
-  const session: Session = {
-    id: event.sessionId,
-    startedAt: event.timestamp,
-    agents: [],
-    status: "active",
-  };
-  state.sessions.set(session.id, session);
-  return { type: "session", data: session };
-}
-
-function ensureAgent(state: StoreState, event: HookEvent): SSEEvent | null {
+async function ensureAgent(event: HookEvent): Promise<SSEEvent | null> {
   const agentId = event.agentId ?? event.sessionId;
-  if (state.agents.has(agentId)) {
-    const agent = state.agents.get(agentId)!;
-    agent.lastSeen = event.timestamp;
+  let agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+  });
+
+  if (!agent) {
+    agent = await prisma.agent.create({
+      data: {
+        id: agentId,
+        name: event.agentName ?? agentId,
+        sessionId: event.sessionId,
+        status: "working",
+        lastSeen: new Date(event.timestamp),
+      },
+    });
+    return { type: "agent", data: { ...agent, lastSeen: agent.lastSeen.toISOString() } as any };
+  } else {
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: { lastSeen: new Date(event.timestamp) },
+    });
     return null;
   }
-
-  const agent: Agent = {
-    id: agentId,
-    name: event.agentName ?? agentId,
-    sessionId: event.sessionId,
-    status: "working",
-    lastSeen: event.timestamp,
-  };
-  state.agents.set(agent.id, agent);
-
-  const session = state.sessions.get(event.sessionId);
-  if (session && !session.agents.includes(agent.id)) {
-    session.agents.push(agent.id);
-  }
-
-  return { type: "agent", data: { ...agent } };
 }
 
-export function processHookEvent(
+export async function processHookEvent(
   event: HookEvent,
-  state: StoreState,
-): SSEEvent[] {
+): Promise<SSEEvent[]> {
   const events: SSEEvent[] = [];
 
-  const sessionEvent = ensureSession(state, event);
+  const sessionEvent = await ensureSession(event);
   if (sessionEvent) events.push(sessionEvent);
 
-  const agentEvent = ensureAgent(state, event);
+  const agentEvent = await ensureAgent(event);
   if (agentEvent) events.push(agentEvent);
 
   const agentId = event.agentId ?? event.sessionId;
 
   switch (event.type) {
     case "SessionStart": {
-      const agent = state.agents.get(agentId);
-      if (agent) {
-        agent.status = "working";
-        events.push({ type: "agent", data: { ...agent } });
-      }
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: { status: "working" },
+      });
+      events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
       break;
     }
 
     case "SubagentStart": {
-      const agent = state.agents.get(agentId);
       const parentId = event.metadata?.parentAgentId;
-      if (agent && typeof parentId === "string") {
-        agent.parentAgentId = parentId;
-        events.push({ type: "agent", data: { ...agent } });
+      if (typeof parentId === "string") {
+        const updatedAgent = await prisma.agent.update({
+          where: { id: agentId },
+          data: { parentAgentId: parentId },
+        });
+        events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
       }
       break;
     }
 
     case "SubagentStop":
     case "Stop": {
-      const agent = state.agents.get(agentId);
-      if (agent) {
-        agent.status = "stopped";
-        events.push({ type: "agent", data: { ...agent } });
-      }
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: { status: "stopped" },
+      });
+      events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
+
       if (event.type === "Stop") {
-        const session = state.sessions.get(event.sessionId);
-        if (session) {
-          session.status = "stopped";
-          events.push({ type: "session", data: { ...session } });
-        }
+        const updatedSession = await prisma.session.update({
+          where: { id: event.sessionId },
+          data: { status: "stopped" },
+        });
+        events.push({ type: "session", data: { ...updatedSession, startedAt: updatedSession.startedAt.toISOString(), agents: [] } as any });
       }
       break;
     }
 
     case "TeammateIdle": {
-      const agent = state.agents.get(agentId);
-      if (agent) {
-        agent.status = "idle";
-        events.push({ type: "agent", data: { ...agent } });
-      }
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: { status: "idle" },
+      });
+      events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
       break;
     }
 
     case "TaskCreated": {
-      const task: Task = {
-        id: event.taskId ?? uuidv4(),
-        sessionId: event.sessionId,
-        agentId,
-        agentName: event.agentName ?? agentId,
-        description: event.content ?? "태스크",
-        status: "created",
-        parentTaskId: event.parentTaskId,
-        createdAt: event.timestamp,
-      };
-      events.push({ type: "task", data: task });
+      const task = await prisma.task.create({
+        data: {
+          id: event.taskId ?? uuidv4(),
+          sessionId: event.sessionId,
+          agentId,
+          agentName: event.agentName ?? agentId,
+          description: event.content ?? "태스크",
+          status: "created",
+          parentTaskId: event.parentTaskId,
+          createdAt: new Date(event.timestamp),
+        },
+      });
+      events.push({ type: "task", data: { ...task, createdAt: task.createdAt.toISOString(), completedAt: task.completedAt?.toISOString() } as any });
       break;
     }
 
     case "TaskCompleted": {
       if (event.taskId) {
-        const task: Task = {
-          id: event.taskId,
-          sessionId: event.sessionId,
-          agentId,
-          agentName: event.agentName ?? agentId,
-          description: event.content ?? "",
-          status: "completed",
-          parentTaskId: event.parentTaskId,
-          createdAt: event.timestamp,
-          completedAt: event.timestamp,
-        };
-        events.push({ type: "task", data: task });
+        const task = await prisma.task.update({
+          where: { id: event.taskId },
+          data: {
+            status: "completed",
+            completedAt: new Date(event.timestamp),
+          },
+        });
+        events.push({ type: "task", data: { ...task, createdAt: task.createdAt.toISOString(), completedAt: task.completedAt?.toISOString() } as any });
       }
       break;
     }
 
+    case "PreInvocation":
+    case "PostInvocation":
     case "PreToolUse":
     case "PostToolUse": {
-      const agent = state.agents.get(agentId);
-      if (agent && event.type === "PreToolUse") {
-        agent.status = "working";
+      if (event.type === "PreToolUse" || event.type === "PreInvocation") {
+        const updatedAgent = await prisma.agent.update({
+          where: { id: agentId },
+          data: { status: "working" },
+        });
+        events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
+      } else if (event.type === "PostInvocation") {
+        const updatedAgent = await prisma.agent.update({
+          where: { id: agentId },
+          data: { status: "idle" },
+        });
+        events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
       }
 
-      const message: Message = {
+      const msgData = {
         id: uuidv4(),
         sessionId: event.sessionId,
         agentId,
         agentName: event.agentName ?? agentId,
-        content:
-          event.content ??
-          `${event.toolName ?? "도구"} ${event.type === "PreToolUse" ? "실행 중" : "완료"}`,
-        timestamp: event.timestamp,
+        content: event.content ?? `${event.toolName ?? "도구"} ${event.type === "PreToolUse" ? "실행 중" : "완료"}`,
+        timestamp: new Date(event.timestamp),
         eventType: event.type,
         toolName: event.toolName,
-        metadata: event.metadata,
+        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
       };
-      events.push({ type: "message", data: message });
+
+      const dbMessage = await prisma.message.create({ data: msgData });
+      
+      const payloadMessage: Message = {
+        ...dbMessage,
+        timestamp: dbMessage.timestamp.toISOString(),
+        metadata: event.metadata,
+        eventType: dbMessage.eventType as any,
+        toolName: dbMessage.toolName ?? undefined,
+      };
+      events.push({ type: "message", data: payloadMessage });
       break;
     }
 
     case "UserPrompt": {
-      const message: Message = {
+      const msgData = {
         id: uuidv4(),
         sessionId: event.sessionId,
         agentId,
         agentName: event.agentName ?? "사용자",
         content: event.content ?? "",
-        timestamp: event.timestamp,
+        timestamp: new Date(event.timestamp),
         eventType: event.type,
-        metadata: event.metadata,
+        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
       };
-      events.push({ type: "message", data: message });
+
+      const dbMessage = await prisma.message.create({ data: msgData });
+      const payloadMessage: Message = {
+        ...dbMessage,
+        timestamp: dbMessage.timestamp.toISOString(),
+        metadata: event.metadata,
+        eventType: dbMessage.eventType as any,
+        toolName: dbMessage.toolName ?? undefined,
+      };
+      events.push({ type: "message", data: payloadMessage });
+      break;
+    }
+
+    case "AgentStateChange": {
+      const newStatus = event.metadata?.status === "idle" ? "idle" : "working";
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: { status: newStatus },
+      });
+      events.push({ type: "agent", data: { ...updatedAgent, lastSeen: updatedAgent.lastSeen.toISOString() } as any });
+      break;
+    }
+
+    case "AgentResponse": {
+      const msgData = {
+        id: uuidv4(),
+        sessionId: event.sessionId,
+        agentId,
+        agentName: event.agentName ?? agentId,
+        content: event.content ?? "",
+        timestamp: new Date(event.timestamp),
+        eventType: event.type,
+        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+      };
+      const dbMessage = await prisma.message.create({ data: msgData });
+      events.push({ type: "message", data: { ...dbMessage, timestamp: dbMessage.timestamp.toISOString(), metadata: event.metadata, eventType: dbMessage.eventType as any } });
       break;
     }
   }

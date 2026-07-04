@@ -2,6 +2,8 @@ export type AgentStatus = "idle" | "working" | "stopped" | "error";
 export type TaskStatus = "created" | "in_progress" | "completed" | "failed";
 
 export type HookEventType =
+  | "PreInvocation"
+  | "PostInvocation"
   | "PreToolUse"
   | "PostToolUse"
   | "TaskCreated"
@@ -11,7 +13,9 @@ export type HookEventType =
   | "Stop"
   | "SubagentStart"
   | "SubagentStop"
-  | "UserPrompt";
+  | "UserPrompt"
+  | "AgentResponse"
+  | "AgentStateChange";
 
 // 우리가 내부에서 사용하는 정규화된 이벤트
 export interface HookEvent {
@@ -27,29 +31,34 @@ export interface HookEvent {
   metadata?: Record<string, unknown>;
 }
 
-// Claude Code가 실제로 보내는 HTTP hook payload
+// Antigravity Code가 보내는 HTTP hook payload (stdin)
 export interface RawHookPayload {
-  session_id: string;
-  hook_event_name: string;
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  tool_response?: {
-    stdout?: string;
-    stderr?: string;
-    interrupted?: boolean;
-    content?: string;
-    filePath?: string;
+  conversationId: string;
+  transcriptPath?: string;
+  workspacePaths?: string[];
+  artifactDirectoryPath?: string;
+  
+  // Query parameter를 통해 주입되는 이벤트 이름
+  hook_event_name?: string; 
+
+  // PreToolUse
+  toolCall?: {
+    name: string;
+    args: Record<string, unknown>;
   };
-  tool_use_id?: string;
-  transcript_path?: string;
-  cwd?: string;
-  permission_mode?: string;
-  // Agent Team 전용 필드
-  agent_id?: string;
-  agent_name?: string;
-  task_id?: string;
-  parent_task_id?: string;
-  description?: string;
+  stepIdx?: number;
+  
+  // PostToolUse / Stop
+  error?: string;
+  
+  // Stop
+  executionNum?: number;
+  terminationReason?: string;
+  fullyIdle?: boolean;
+  
+  // PreInvocation / PostInvocation
+  invocationNum?: number;
+  initialNumSteps?: number;
 }
 
 export interface Agent {
@@ -87,6 +96,8 @@ export interface Task {
 
 export interface Session {
   id: string;
+  title: string;
+  projectName: string;
   startedAt: string;
   agents: string[];
   status: "active" | "stopped";

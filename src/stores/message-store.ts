@@ -13,6 +13,7 @@ interface MessageFilter {
 
 interface MessageStore {
   messages: Message[];
+  messageIds: Record<string, boolean>;
   filter: MessageFilter;
   addMessage: (message: Message) => void;
   setFilter: (filter: Partial<MessageFilter>) => void;
@@ -28,15 +29,29 @@ const DEFAULT_FILTER: MessageFilter = {
 
 export const useMessageStore = create<MessageStore>((set) => ({
   messages: [],
+  messageIds: {},
   filter: { ...DEFAULT_FILTER },
 
   addMessage: (message) =>
     set((state) => {
-      const next = [...state.messages, message];
-      if (next.length > MAX_MESSAGES) {
-        return { messages: next.slice(next.length - MAX_MESSAGES) };
+      // O(1) 중복 검사
+      if (state.messageIds[message.id]) {
+        return state;
       }
-      return { messages: next };
+      const next = [...state.messages, message];
+      
+      if (next.length > MAX_MESSAGES) {
+        const sliced = next.slice(next.length - MAX_MESSAGES);
+        const rebuiltIds: Record<string, boolean> = {};
+        for (let i = 0; i < sliced.length; i++) {
+          rebuiltIds[sliced[i].id] = true;
+        }
+        return { messages: sliced, messageIds: rebuiltIds };
+      }
+      return { 
+        messages: next, 
+        messageIds: { ...state.messageIds, [message.id]: true } 
+      };
     }),
 
   setFilter: (partial) =>
@@ -46,5 +61,5 @@ export const useMessageStore = create<MessageStore>((set) => ({
 
   resetFilter: () => set({ filter: { ...DEFAULT_FILTER } }),
 
-  clear: () => set({ messages: [], filter: { ...DEFAULT_FILTER } }),
+  clear: () => set({ messages: [], messageIds: {}, filter: { ...DEFAULT_FILTER } }),
 }));

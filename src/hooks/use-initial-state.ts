@@ -20,7 +20,7 @@ export function useInitialState() {
 
     async function load() {
       try {
-        const res = await fetch("/api/sessions");
+        const res = await fetch("/api/sessions", { cache: "no-store" });
         if (!res.ok) return;
 
         const sessions: Session[] = await res.json();
@@ -31,29 +31,21 @@ export function useInitialState() {
           addSession(session);
         }
 
-        // 각 세션의 상세 데이터 병렬 로드
-        const details = await Promise.allSettled(
-          sessions.map((s) =>
-            fetch(`/api/sessions/${s.id}`).then((r) =>
-              r.ok ? (r.json() as Promise<SessionDetail>) : null,
-            ),
-          ),
-        );
-
-        if (cancelled) return;
-
-        for (const result of details) {
-          if (result.status !== "fulfilled" || !result.value) continue;
-          const detail = result.value;
-          for (const agent of detail.agents) addOrUpdateAgent(agent);
-          for (const message of detail.messages) addMessage(message);
-          for (const task of detail.tasks) addOrUpdateTask(task);
+        // 첫 번째 활성 세션 선택 (없으면 첫 번째 세션)
+        const active = sessions.find((s) => s.status === "active") || sessions[0];
+        
+        if (active) {
+          setActiveSession(active.id);
+          // 활성 세션 디테일만 로드
+          const detailRes = await fetch(`/api/sessions/${active.id}`);
+          if (detailRes.ok) {
+            const detail: SessionDetail = await detailRes.json();
+            for (const agent of detail.agents) addOrUpdateAgent(agent);
+            for (const message of detail.messages) addMessage(message);
+            for (const task of detail.tasks) addOrUpdateTask(task);
+            useSessionStore.getState().markSessionLoaded(active.id);
+          }
         }
-
-        // 첫 번째 활성 세션 선택
-        const active = sessions.find((s) => s.status === "active");
-        if (active) setActiveSession(active.id);
-        else if (sessions.length > 0) setActiveSession(sessions[0].id);
       } catch {
         // 서버 미응답 시 무시
       } finally {

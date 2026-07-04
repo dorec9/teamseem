@@ -1,36 +1,52 @@
 import { type NextRequest } from "next/server";
 import { eventStore } from "@/lib/store/event-store";
+import { prisma } from "@/lib/db";
 import type { HookEvent, RawHookPayload } from "@/lib/types";
 import {
   isRawHookPayload,
   normalizePayload,
   VALID_EVENT_TYPES,
 } from "@/lib/store/normalize-payload";
-import { readNewUserMessages } from "@/lib/store/transcript-reader";
-
-const lastTimestampMap = new Map<string, string>();
+import { readNewEvents } from "@/lib/store/transcript-reader";
+import type { HookEventType } from "@/lib/types";
 
 async function processTranscript(
   raw: RawHookPayload,
   hookEvent: HookEvent,
 ): Promise<void> {
-  if (!raw.transcript_path) return;
+  if (!raw.transcriptPath) return;
 
-  const sessionId = raw.session_id;
-  const lastTs = lastTimestampMap.get(sessionId) ?? null;
-  const userMessages = await readNewUserMessages(raw.transcript_path, lastTs);
-
-  for (const msg of userMessages) {
-    const userEvent: HookEvent = {
-      type: "UserPrompt",
+  const sessionId = raw.conversationId;
+  const targetAgentId = hookEvent.agentId || `${sessionId}-antigravity-1`;
+  const dbCount = await prisma.message.count({
+    where: {
       sessionId,
-      timestamp: msg.timestamp,
-      agentId: hookEvent.agentId,
-      agentName: "사용자",
-      content: msg.content,
+      agentId: targetAgentId,
+      eventType: { in: ["UserPrompt", "PreToolUse", "PostToolUse", "AgentResponse"] }
+    }
+  });
+  
+  const newEvents = await readNewEvents(raw.transcriptPath, dbCount);
+
+  for (const ev of newEvents) {
+    const parsedEvent: HookEvent = {
+      type: ev.type as HookEventType,
+      sessionId,
+      timestamp: ev.timestamp,
+      agentId: ev.agentId || hookEvent.agentId,
+      agentName: ev.type === "UserPrompt" ? "사용자" : (ev.type === "SubagentStart" ? "서브 에이전트" : hookEvent.agentName),
+      taskId: ev.taskId,
+      parentTaskId: ev.parentTaskId,
+      toolName: ev.toolName,
+      content: ev.content,
+      metadata: {
+        ...(ev.metadata || {}),
+        parentAgentId: ev.type === "SubagentStart" ? hookEvent.agentId : undefined,
+        toolInput: ev.toolInput,
+        toolResponse: ev.toolResponse as any,
+      }
     };
-    eventStore.addEvent(userEvent);
-    lastTimestampMap.set(sessionId, msg.timestamp);
+    await eventStore.addEvent(parsedEvent);
   }
 }
 
@@ -60,6 +76,10 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
+    const eventName = request.nextUrl.searchParams.get("event");
+    if (eventName && typeof body === "object" && body !== null) {
+      (body as Record<string, unknown>).hook_event_name = eventName;
+    }
   } catch {
     return Response.json(
       { error: "유효하지 않은 JSON", code: "INVALID_JSON" },
@@ -83,10 +103,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sseEvents = eventStore.addEvent(hookEvent);
+    // Map subagent session to main session if applicable
+    const existingAgent = await prisma.agent.findUnique({
+      where: { id: hookEvent.agentId || hookEvent.sessionId }
+    });
+    
+    if (existingAgent && existingAgent.sessionId) {
+      hookEvent.sessionId = existingAgent.sessionId;
+      if (isRawHookPayload(body)) {
+        body.conversationId = existingAgent.sessionId;
+      }
+    }
 
-    if (isRawHookPayload(body) && body.transcript_path) {
-      await processTranscript(body, hookEvent);
+    console.log("HOOK EVENT TYPE:", hookEvent.type);
+    const sseEvents = await eventStore.addEvent(hookEvent);
+    console.log("SSE EVENTS LENGTH:", sseEvents.length);
+
+    if (isRawHookPayload(body) && body.transcriptPath) {
+      processTranscript(body, hookEvent).catch(console.error);
     }
 
     return Response.json({ ok: true, processed: sseEvents.length });
@@ -97,14 +131,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
-
-export async function GET() {
-  return Response.json({
-    status: "ok",
-    sessions: eventStore.getSessionList().length,
-    agents: eventStore.agents.size,
-    messages: eventStore.messages.length,
-    tasks: eventStore.tasks.size,
-  });
 }

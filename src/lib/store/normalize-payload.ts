@@ -11,6 +11,10 @@ export const VALID_EVENT_TYPES: ReadonlySet<string> = new Set<HookEventType>([
   "SubagentStart",
   "SubagentStop",
   "UserPrompt",
+  "PreInvocation",
+  "PostInvocation",
+  "AgentResponse",
+  "AgentStateChange"
 ]);
 
 const CONTENT_PREVIEW_LIMIT = 200;
@@ -21,113 +25,92 @@ function safeString(value: unknown): string | undefined {
 
 function buildContent(raw: RawHookPayload): string {
   const eventType = raw.hook_event_name;
-  const toolName = raw.tool_name ?? "";
+  const toolName = raw.toolCall?.name ?? "";
 
-  if (eventType === "PreToolUse" && raw.tool_input) {
-    const input = raw.tool_input;
+  if (eventType === "PreToolUse" && raw.toolCall) {
+    const args = raw.toolCall.args;
 
-    if (toolName === "Bash") {
-      const command = safeString(input.command);
+    if (toolName === "run_command") {
+      const command = safeString(args.CommandLine);
       if (command) return `명령어 실행 중: ${command}`;
     }
-    if (toolName === "Read") {
-      const filePath = safeString(input.file_path);
+    if (toolName === "view_file") {
+      const filePath = safeString(args.AbsolutePath);
       if (filePath) return `${filePath} 파일을 읽고 있습니다`;
     }
-    if (toolName === "Edit") {
-      const filePath = safeString(input.file_path);
+    if (toolName === "replace_file_content" || toolName === "multi_replace_file_content") {
+      const filePath = safeString(args.TargetFile);
       if (filePath) return `${filePath} 파일을 수정하고 있습니다`;
     }
-    if (toolName === "Write") {
-      const filePath = safeString(input.file_path);
+    if (toolName === "write_to_file") {
+      const filePath = safeString(args.TargetFile);
       if (filePath) return `${filePath} 파일을 생성하고 있습니다`;
     }
-    if (toolName === "Grep") {
-      const pattern = safeString(input.pattern);
+    if (toolName === "grep_search") {
+      const pattern = safeString(args.Query);
       if (pattern) return `코드에서 '${pattern}' 검색 중`;
     }
-    if (toolName === "Glob") {
-      const pattern = safeString(input.pattern);
+    if (toolName === "find_by_name") {
+      const pattern = safeString(args.Pattern);
       if (pattern) return `'${pattern}' 패턴으로 파일 찾는 중`;
     }
-    if (toolName === "Agent") {
-      const desc = safeString(input.description) ?? safeString(input.prompt);
-      if (desc) return `에이전트를 생성하고 있습니다: ${desc}`;
+    if (toolName === "invoke_subagent") {
       return "에이전트를 생성하고 있습니다";
     }
 
-    return `${toolName} 실행 중`;
+    return `${toolName} 도구 실행 중`;
   }
 
-  if (eventType === "PostToolUse" && raw.tool_response) {
-    const resp = raw.tool_response;
-    if (resp.stderr) {
-      const preview = resp.stderr.slice(0, CONTENT_PREVIEW_LIMIT);
-      return `${toolName} 오류 발생: ${preview}`;
+  if (eventType === "PostToolUse") {
+    if (raw.error) {
+      const preview = raw.error.slice(0, CONTENT_PREVIEW_LIMIT);
+      return `오류 발생: ${preview}`;
     }
-    if (resp.stdout) {
-      const preview = resp.stdout.slice(0, CONTENT_PREVIEW_LIMIT);
-      return `${toolName} 완료: ${preview}${resp.stdout.length > CONTENT_PREVIEW_LIMIT ? "..." : ""}`;
-    }
-    return `${toolName} 완료`;
+    return `도구 실행 완료`;
   }
 
-  if (eventType === "SubagentStart") {
-    const name = raw.agent_name ?? "unknown";
-    return `서브에이전트 '${name}' 시작`;
+  if (eventType === "PreInvocation") {
+    return "모델 추론 시작 (PreInvocation)";
   }
 
-  if (eventType === "SubagentStop") {
-    const name = raw.agent_name ?? "unknown";
-    return `서브에이전트 '${name}' 종료`;
-  }
-
-  if (eventType === "TaskCreated") {
-    return `새 태스크: ${raw.description ?? "태스크"}`;
-  }
-
-  if (eventType === "TaskCompleted") {
-    return `태스크 완료: ${raw.description ?? ""}`;
+  if (eventType === "PostInvocation") {
+    return "모델 응답 수신 (PostInvocation)";
   }
 
   if (eventType === "Stop") {
+    if (raw.terminationReason === "error" && raw.error) {
+      return `세션 에러 종료: ${raw.error}`;
+    }
     return "세션 종료";
   }
 
-  if (raw.description) return raw.description;
-
-  return eventType;
+  return eventType || "Unknown Event";
 }
 
 export function isRawHookPayload(body: unknown): body is RawHookPayload {
   if (typeof body !== "object" || body === null) return false;
   const obj = body as Record<string, unknown>;
-  return (
-    typeof obj.session_id === "string" &&
-    typeof obj.hook_event_name === "string"
-  );
+  return typeof obj.conversationId === "string";
 }
 
 export function normalizePayload(raw: RawHookPayload): HookEvent | null {
-  if (!VALID_EVENT_TYPES.has(raw.hook_event_name)) return null;
-  if (!raw.session_id.trim()) return null;
+  const eventName = raw.hook_event_name || "Unknown";
+  if (!VALID_EVENT_TYPES.has(eventName)) return null;
+  if (!raw.conversationId.trim()) return null;
 
   return {
-    type: raw.hook_event_name as HookEventType,
-    sessionId: raw.session_id,
+    type: eventName as HookEventType,
+    sessionId: raw.conversationId,
     timestamp: new Date().toISOString(),
-    agentId: raw.agent_id || raw.session_id,
-    agentName: raw.agent_name || "Claude",
-    taskId: raw.task_id,
-    parentTaskId: raw.parent_task_id,
-    toolName: raw.tool_name,
+    agentId: (raw as any).agentId || raw.conversationId,
+    agentName: (raw as any).agentName || "Antigravity Agent",
+    toolName: raw.toolCall?.name,
     content: buildContent(raw),
     metadata: {
-      toolUseId: raw.tool_use_id,
-      cwd: raw.cwd,
-      permissionMode: raw.permission_mode,
-      toolInput: raw.tool_input,
-      toolResponse: raw.tool_response,
+      ...(raw.metadata || {}),
+      cwd: raw.workspacePaths?.[0],
+      toolInput: raw.toolCall?.args,
+      error: raw.error,
     },
   };
 }

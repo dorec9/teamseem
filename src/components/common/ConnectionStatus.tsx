@@ -14,9 +14,19 @@ export default function ConnectionStatus({ state }: ConnectionStatusProps) {
   const config = STATUS_CONFIG[state];
 
   return (
-    <div className="flex items-center gap-2 text-sm text-foreground/70">
-      <span className={`inline-block h-2 w-2 rounded-full ${config.color}`} />
-      {config.label}
+    <div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-3 py-2 border border-foreground/5 transition-colors hover:bg-foreground/[0.05]">
+      <span className="text-xs font-medium text-foreground/70">
+        서버 상태
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2 items-center justify-center">
+          {state === "connecting" && (
+            <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${config.color} opacity-75`} />
+          )}
+          <span className={`relative inline-flex h-2 w-2 rounded-full ${config.color}`} />
+        </span>
+        <span className="text-xs font-medium text-foreground/80">{config.label}</span>
+      </div>
     </div>
   );
 }

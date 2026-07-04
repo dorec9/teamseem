@@ -71,9 +71,9 @@ function TaskNodeComponent({ data }: NodeProps<Node<TaskNodeData>>) {
         </span>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-foreground/40">
-        <span>{data.agentName}</span>
-        <span>{time}</span>
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-foreground/40 gap-2">
+        <span className="truncate max-w-[120px]" title={data.agentName}>{data.agentName}</span>
+        <span className="shrink-0">{time}</span>
       </div>
 
       <Handle type="source" position={Position.Bottom} className="opacity-0" />

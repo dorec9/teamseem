@@ -34,33 +34,6 @@ export default function FlowPanel() {
       ? tasks.filter((t) => t.sessionId === activeSessionId)
       : tasks;
       
-    // 사용자의 요청("너무 많은 테스크가 들어가있어", "최신 태스크 하나만")에 따라
-    // 에이전트 당 가장 최우선순위(in_progress > created > completed) 또는 최신 태스크 1개만 다이어그램에 표시
-    const latestTasksPerAgent = new Map();
-    for (const t of sessionTasks) {
-      if (!t.agentId) continue;
-      const existing = latestTasksPerAgent.get(t.agentId);
-      if (!existing) {
-        latestTasksPerAgent.set(t.agentId, t);
-      } else {
-        const getScore = (task: any) => {
-          if (task.status === "in_progress") return 3;
-          if (task.status === "created") return 2;
-          return 1;
-        };
-        const scoreT = getScore(t);
-        const scoreE = getScore(existing);
-        if (scoreT > scoreE) {
-          latestTasksPerAgent.set(t.agentId, t);
-        } else if (scoreT === scoreE) {
-          if (new Date(t.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
-            latestTasksPerAgent.set(t.agentId, t);
-          }
-        }
-      }
-    }
-    sessionTasks = Array.from(latestTasksPerAgent.values());
-      
     let sessionAgents = activeSessionId
       ? agents.filter((a) => a.sessionId === activeSessionId)
       : agents;

@@ -243,7 +243,7 @@ export async function processHookEvent(
         metadata: event.metadata ? JSON.stringify(event.metadata) : null,
       };
       const dbMessage = await prisma.message.create({ data: msgData });
-      events.push({ type: "message", data: { ...dbMessage, timestamp: dbMessage.timestamp.toISOString(), metadata: event.metadata, eventType: dbMessage.eventType as any } });
+      events.push({ type: "message", data: { ...dbMessage, toolName: dbMessage.toolName || undefined, timestamp: dbMessage.timestamp.toISOString(), eventType: dbMessage.eventType as any, metadata: dbMessage.metadata ? JSON.parse(dbMessage.metadata) : undefined } });
       break;
     }
   }

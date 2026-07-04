@@ -2,12 +2,16 @@ import { readFile } from "fs/promises";
 import type { HookEvent } from "@/lib/types";
 
 export interface ParsedEvent {
-  type: string; // "UserPrompt", "PreToolUse", "PostToolUse"
+  type: string;
   timestamp: string;
   content: string;
+  agentId?: string;
+  taskId?: string;
+  parentTaskId?: string;
   toolName?: string;
   toolInput?: Record<string, unknown>;
   toolResponse?: { stdout?: string; content?: string };
+  metadata?: Record<string, unknown>;
 }
 
 const TOOL_NAME_KO: Record<string, string> = {

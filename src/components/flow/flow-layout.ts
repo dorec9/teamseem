@@ -14,6 +14,7 @@ interface AgentNodeData extends Record<string, unknown> {
   label: string;
   status: string;
   lastSeen: string;
+  isSubAgent?: boolean;
 }
 
 const TASK_NODE_WIDTH = 220;
@@ -46,6 +47,7 @@ export function buildFlowElements(
         label: agent.name,
         status: agent.status,
         lastSeen: agent.lastSeen,
+        isSubAgent: !!agent.parentAgentId,
       } as AgentNodeData,
     });
 

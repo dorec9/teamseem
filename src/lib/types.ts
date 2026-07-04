@@ -59,6 +59,8 @@ export interface RawHookPayload {
   // PreInvocation / PostInvocation
   invocationNum?: number;
   initialNumSteps?: number;
+
+  metadata?: Record<string, unknown>;
 }
 
 export interface Agent {

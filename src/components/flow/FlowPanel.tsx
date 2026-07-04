@@ -29,7 +29,7 @@ export default function FlowPanel() {
   const setFilter = useMessageStore((s) => s.setFilter);
   const filter = useMessageStore((s) => s.filter);
 
-  const { nodes, edges, filteredTasks, filteredAgents } = useMemo(() => {
+  const baseData = useMemo(() => {
     const sessionTasks = activeSessionId
       ? tasks.filter((t) => t.sessionId === activeSessionId)
       : tasks;
@@ -39,19 +39,68 @@ export default function FlowPanel() {
       : agents;
     sessionAgents = sessionAgents.filter(a => a.status !== "stopped" && a.id !== a.sessionId);
 
-    const flow = buildFlowElements(sessionAgents, sessionTasks);
-    
-    // Sync React Flow selection with our global filter
-    const syncedNodes = flow.nodes.map((n) => {
-      const rawAgentId = n.id.replace("agent-", "");
-      return {
-        ...n,
-        selected: n.type === "agentNode" && filter.agentId === rawAgentId,
-      };
+    return { sessionTasks, sessionAgents };
+  }, [tasks, agents, activeSessionId]);
+
+  const { sessionTasks, sessionAgents } = baseData;
+
+  const layoutHash = useMemo(() => {
+    return sessionAgents.map(a => `${a.id}:${a.parentAgentId}`).join(',') + '|' + 
+           sessionTasks.map(t => `${t.id}:${t.parentTaskId}:${t.agentId}`).join(',');
+  }, [sessionAgents, sessionTasks]);
+
+  const layout = useMemo(() => {
+    return buildFlowElements(sessionAgents, sessionTasks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutHash]); // ONLY recalculate Dagre layout when topology changes
+
+  const { nodes, edges, filteredTasks, filteredAgents } = useMemo(() => {
+    const syncedNodes = layout.nodes.map((n) => {
+      if (n.type === "agentNode") {
+        const rawAgentId = n.id.replace("agent-", "");
+        const agent = sessionAgents.find(a => a.id === rawAgentId);
+        return {
+          ...n,
+          data: agent ? {
+            label: agent.name,
+            status: agent.status,
+            lastSeen: agent.lastSeen,
+            isSubAgent: !!agent.parentAgentId,
+          } : n.data,
+          selected: filter.agentId === rawAgentId,
+        };
+      } else {
+        const rawTaskId = n.id.replace("task-", "");
+        const task = sessionTasks.find(t => t.id === rawTaskId);
+        return {
+          ...n,
+          data: task ? {
+            label: task.description,
+            agentName: task.agentName,
+            status: task.status,
+            createdAt: task.createdAt,
+            completedAt: task.completedAt,
+          } : n.data,
+        };
+      }
     });
 
-    return { nodes: syncedNodes, edges: flow.edges, filteredTasks: sessionTasks, filteredAgents: sessionAgents };
-  }, [tasks, agents, activeSessionId, filter.agentId]);
+    const syncedEdges = layout.edges.map(e => {
+      let isAnimated = false;
+      if (e.target.startsWith("agent-")) {
+        const targetId = e.target.replace("agent-", "");
+        const agent = sessionAgents.find(a => a.id === targetId);
+        isAnimated = agent?.status === "working";
+      } else if (e.target.startsWith("task-")) {
+        const targetId = e.target.replace("task-", "");
+        const task = sessionTasks.find(t => t.id === targetId);
+        isAnimated = task?.status === "in_progress" || (task?.status === "created" && e.source.startsWith("task-"));
+      }
+      return { ...e, animated: isAnimated };
+    });
+
+    return { nodes: syncedNodes, edges: syncedEdges, filteredTasks: sessionTasks, filteredAgents: sessionAgents };
+  }, [layout, sessionAgents, sessionTasks, filter.agentId]);
 
   return (
     <div className="flex h-full flex-col border-l border-foreground/10">

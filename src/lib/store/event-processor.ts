@@ -61,9 +61,46 @@ async function ensureAgent(event: HookEvent): Promise<SSEEvent | null> {
   }
 }
 
-export async function processHookEvent(
-  event: HookEvent,
-): Promise<SSEEvent[]> {
+class AsyncQueue {
+  private queue: Array<() => Promise<void>> = [];
+  private processing = false;
+
+  async enqueue<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          resolve(await task());
+        } catch (err) {
+          reject(err);
+        }
+      });
+      if (!this.processing) {
+        this.processNext();
+      }
+    });
+  }
+
+  private async processNext() {
+    if (this.queue.length === 0) {
+      this.processing = false;
+      return;
+    }
+    this.processing = true;
+    const task = this.queue.shift();
+    if (task) {
+      try {
+        await task();
+      } catch (e) {
+        console.error("Queue task error:", e);
+      }
+    }
+    this.processNext();
+  }
+}
+
+const globalQueue = new AsyncQueue();
+
+async function processHookEventInternal(event: HookEvent): Promise<SSEEvent[]> {
   const events: SSEEvent[] = [];
 
   const sessionEvent = await ensureSession(event);
@@ -254,4 +291,8 @@ export async function processHookEvent(
   }
 
   return events;
+}
+
+export async function processHookEvent(event: HookEvent): Promise<SSEEvent[]> {
+  return globalQueue.enqueue(() => processHookEventInternal(event));
 }

@@ -94,39 +94,6 @@ export default function AgentPanel() {
             </div>
             <div className="flex items-center gap-2">
               <AgentStatusBadge status={agent.status} />
-              {agent.status === "working" && (
-                <button
-                  title="에이전트 중지"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      const res = await fetch("/api/agents/interrupt", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          agentId: agent.id,
-                          action: "stop",
-                        }),
-                      });
-                      if (res.ok) {
-                        console.log("Interrupt sent to", agent.name);
-                      }
-                    } catch (e) {
-                      console.error("Failed to interrupt agent", e);
-                    }
-                  }}
-                  className="flex h-6 w-6 items-center justify-center rounded bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/20"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="h-3 w-3"
-                  >
-                    <rect width="18" height="18" x="3" y="3" rx="2" />
-                  </svg>
-                </button>
-              )}
             </div>
           </div>
         </li>

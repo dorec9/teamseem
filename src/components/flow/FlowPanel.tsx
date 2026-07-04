@@ -37,7 +37,7 @@ export default function FlowPanel() {
     let sessionAgents = activeSessionId
       ? agents.filter((a) => a.sessionId === activeSessionId)
       : agents;
-    sessionAgents = sessionAgents.filter(a => a.status !== "stopped");
+    sessionAgents = sessionAgents.filter(a => a.status !== "stopped" && a.id !== a.sessionId);
 
     const flow = buildFlowElements(sessionAgents, sessionTasks);
     

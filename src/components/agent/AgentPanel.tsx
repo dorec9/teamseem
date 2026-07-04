@@ -18,7 +18,7 @@ export default function AgentPanel() {
     let result = activeSessionId
       ? agents.filter((a) => a.sessionId === activeSessionId)
       : agents;
-    return result.filter(a => a.status !== "stopped");
+    return result.filter(a => a.status !== "stopped" && a.id !== a.sessionId);
   }, [agents, activeSessionId]);
 
   const rootAgents = useMemo(() => filtered.filter(
